@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:17
+    container_name: kotlin-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: kotlin_db
+      POSTGRES_USER: feature
+      POSTGRES_PASSWORD: feature
+    ports:
+      - "6543:5432"
+    volumes:
+      - kotlin_postgres_data:/var/lib/postgresql/data
+
+volumes:
+  kotlin_postgres_data:

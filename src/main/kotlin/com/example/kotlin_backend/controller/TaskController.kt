@@ -1,6 +1,7 @@
 package com.example.kotlin_backend.controller
 
 import com.example.kotlin_backend.dto.request.CreateTaskRequest
+import com.example.kotlin_backend.dto.request.AssignTaskRequest
 import com.example.kotlin_backend.dto.response.TaskResponse
 import com.example.kotlin_backend.dto.request.UpdateTaskRequest
 import com.example.kotlin_backend.service.TaskService
@@ -37,5 +38,13 @@ class TaskController(
     @ResponseStatus(HttpStatus.NO_CONTENT)
     fun deleteTask(@PathVariable id: Long) {
         taskService.deleteTask(id)
+    }
+
+    @PatchMapping("/{id}/assign")
+    fun assignTask(
+        @PathVariable id: Long,
+        @Valid @RequestBody request: AssignTaskRequest
+    ): TaskResponse {
+        return taskService.assignTask(id, request)
     }
 }

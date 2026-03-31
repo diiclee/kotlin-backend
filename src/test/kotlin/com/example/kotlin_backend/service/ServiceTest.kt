@@ -4,6 +4,7 @@ import com.example.kotlin_backend.dto.request.CreateProjectRequest
 import com.example.kotlin_backend.dto.request.CreateTaskRequest
 import com.example.kotlin_backend.dto.request.CreateUserRequest
 import com.example.kotlin_backend.dto.request.UpdateTaskRequest
+import com.example.kotlin_backend.dto.request.AssignTaskRequest
 import com.example.kotlin_backend.entity.Project
 import com.example.kotlin_backend.entity.Task
 import com.example.kotlin_backend.entity.User
@@ -190,6 +191,28 @@ class ServiceTest {
         `when`(taskRepository.findById(99L)).thenReturn(Optional.empty())
 
         assertThatThrownBy { taskService.deleteTask(99L) }
+            .isInstanceOf(ResourceNotFoundException::class.java)
+    }
+
+    // UC10: Assign Task
+    @Test
+    fun `assignTask should return task response`() {
+        val task = dummyTask()
+        val user = dummyUser()
+        val request = AssignTaskRequest(1L)
+        `when`(taskRepository.findById(1L)).thenReturn(Optional.of(task))
+        `when`(userRepository.findById(1L)).thenReturn(Optional.of(user))
+        `when`(taskRepository.save(task)).thenReturn(task)
+        `when`(taskMapper.toResponse(task)).thenCallRealMethod()
+
+        assertThat(taskService.assignTask(1L, request).title).isEqualTo("Task 1")
+    }
+
+    @Test
+    fun `assignTask should throw when task not found`() {
+        `when`(taskRepository.findById(99L)).thenReturn(Optional.empty())
+
+        assertThatThrownBy { taskService.assignTask(99L, AssignTaskRequest(1L)) }
             .isInstanceOf(ResourceNotFoundException::class.java)
     }
 }

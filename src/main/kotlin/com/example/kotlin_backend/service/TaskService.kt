@@ -1,11 +1,13 @@
 package com.example.kotlin_backend.service
 
+import com.example.kotlin_backend.dto.request.AssignTaskRequest
 import com.example.kotlin_backend.dto.request.CreateTaskRequest
 import com.example.kotlin_backend.dto.response.TaskResponse
 import com.example.kotlin_backend.dto.request.UpdateTaskRequest
 import com.example.kotlin_backend.mapper.TaskMapper
 import com.example.kotlin_backend.repository.ProjectRepository
 import com.example.kotlin_backend.repository.TaskRepository
+import com.example.kotlin_backend.repository.UserRepository
 import com.example.kotlin_backend.util.findByIdOrThrow
 import org.springframework.stereotype.Service
 
@@ -13,6 +15,7 @@ import org.springframework.stereotype.Service
 class TaskService(
     private val taskRepository: TaskRepository,
     private val projectRepository: ProjectRepository,
+    private val userRepository: UserRepository,
     private val taskMapper: TaskMapper
 ) {
 
@@ -41,5 +44,13 @@ class TaskService(
     fun deleteTask(id: Long) {
         val task = taskRepository.findByIdOrThrow(id, "Task")
         taskRepository.delete(task)
+    }
+
+    fun assignTask(id: Long, request: AssignTaskRequest): TaskResponse {
+        val task = taskRepository.findByIdOrThrow(id, "Task")
+        val user = userRepository.findByIdOrThrow(request.userId, "User")
+        task.assignedUser = user
+        val savedTask = taskRepository.save(task)
+        return taskMapper.toResponse(savedTask)
     }
 }

@@ -1,9 +1,11 @@
 package com.example.kotlin_backend.service
 
 import com.example.kotlin_backend.dto.request.AssignTaskRequest
+import com.example.kotlin_backend.dto.request.ChangeTaskStatusRequest
 import com.example.kotlin_backend.dto.request.CreateTaskRequest
 import com.example.kotlin_backend.dto.response.TaskResponse
 import com.example.kotlin_backend.dto.request.UpdateTaskRequest
+import com.example.kotlin_backend.exception.BadRequestException
 import com.example.kotlin_backend.mapper.TaskMapper
 import com.example.kotlin_backend.repository.ProjectRepository
 import com.example.kotlin_backend.repository.TaskRepository
@@ -52,5 +54,27 @@ class TaskService(
         task.assignedUser = user
         val savedTask = taskRepository.save(task)
         return taskMapper.toResponse(savedTask)
+    }
+
+    fun unassignTask(id: Long): TaskResponse {
+        val task = taskRepository.findByIdOrThrow(id, "Task")
+        task.assignedUser = null
+        val savedTask = taskRepository.save(task)
+        return taskMapper.toResponse(savedTask)
+    }
+
+    fun changeTaskStatus(id: Long, request: ChangeTaskStatusRequest): TaskResponse {
+        val task = taskRepository.findByIdOrThrow(id, "Task")
+        if (!task.status.canTransitionTo(request.status)){
+            throw BadRequestException("Status updated from ${task.status} to ${request.status} is not allowed")
+        }
+        task.status = request.status
+        val savedTask = taskRepository.save(task)
+        return taskMapper.toResponse(savedTask)
+    }
+
+    fun searchTasks(keyword: String): List<TaskResponse> {
+        return taskRepository.findByTitleContainingIgnoreCase(keyword)
+            .map { taskMapper.toResponse(it) }
     }
 }

@@ -2,6 +2,7 @@ package com.example.kotlin_backend.controller
 
 import com.example.kotlin_backend.dto.request.CreateTaskRequest
 import com.example.kotlin_backend.dto.request.AssignTaskRequest
+import com.example.kotlin_backend.dto.request.ChangeTaskStatusRequest
 import com.example.kotlin_backend.dto.response.TaskResponse
 import com.example.kotlin_backend.dto.request.UpdateTaskRequest
 import com.example.kotlin_backend.service.TaskService
@@ -46,5 +47,22 @@ class TaskController(
         @Valid @RequestBody request: AssignTaskRequest
     ): TaskResponse {
         return taskService.assignTask(id, request)
+    }
+
+    @PatchMapping("/{id}/unassign")
+    fun unassignTask(@PathVariable id: Long): TaskResponse {
+        return taskService.unassignTask(id)
+    }
+
+    @PatchMapping("/{id}/status")
+    fun updateTaskStatus(
+        @PathVariable id: Long,
+        @Valid @RequestBody request: ChangeTaskStatusRequest): TaskResponse {
+        return taskService.changeTaskStatus(id, request)
+    }
+
+    @GetMapping("/search")
+    fun searchTasks(@RequestParam keyword: String): List<TaskResponse> {
+        return taskService.searchTasks(keyword)
     }
 }

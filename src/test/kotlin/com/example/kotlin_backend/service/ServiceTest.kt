@@ -1,18 +1,25 @@
 package com.example.kotlin_backend.service
 
+import com.example.kotlin_backend.dto.request.AddCommentRequest
 import com.example.kotlin_backend.dto.request.CreateProjectRequest
 import com.example.kotlin_backend.dto.request.CreateTaskRequest
 import com.example.kotlin_backend.dto.request.CreateUserRequest
 import com.example.kotlin_backend.dto.request.UpdateTaskRequest
 import com.example.kotlin_backend.dto.request.AssignTaskRequest
+import com.example.kotlin_backend.dto.request.ChangeTaskStatusRequest
+import com.example.kotlin_backend.entity.Comment
 import com.example.kotlin_backend.entity.Project
 import com.example.kotlin_backend.entity.Task
 import com.example.kotlin_backend.entity.User
 import com.example.kotlin_backend.entity.enums.TaskPriority
+import com.example.kotlin_backend.entity.enums.TaskStatus
+import com.example.kotlin_backend.exception.BadRequestException
 import com.example.kotlin_backend.exception.ResourceNotFoundException
+import com.example.kotlin_backend.mapper.CommentMapper
 import com.example.kotlin_backend.mapper.ProjectMapper
 import com.example.kotlin_backend.mapper.TaskMapper
 import com.example.kotlin_backend.mapper.UserMapper
+import com.example.kotlin_backend.repository.CommentRepository
 import com.example.kotlin_backend.repository.ProjectRepository
 import com.example.kotlin_backend.repository.TaskRepository
 import com.example.kotlin_backend.repository.UserRepository
@@ -41,10 +48,15 @@ class ServiceTest {
     @Mock private lateinit var taskMapper: TaskMapper
     @InjectMocks private lateinit var taskService: TaskService
 
+    @Mock private lateinit var commentRepository: CommentRepository
+    @Mock private lateinit var commentMapper: CommentMapper
+    @InjectMocks private lateinit var commentService: CommentService
+
     // Helpers
     private fun dummyUser() = User(id = 1L, name = "Alice", email = "alice@example.com")
     private fun dummyProject() = Project(id = 1L, title = "Project", owner = dummyUser())
     private fun dummyTask() = Task(id = 1L, title = "Task 1", priority = TaskPriority.HIGH, project = dummyProject())
+    private fun dummyComment() = Comment(id = 1L, content = "Nice task", task = dummyTask(), author = dummyUser())
 
     //  UC1: Create User
     @Test
@@ -214,5 +226,126 @@ class ServiceTest {
 
         assertThatThrownBy { taskService.assignTask(99L, AssignTaskRequest(1L)) }
             .isInstanceOf(ResourceNotFoundException::class.java)
+    }
+
+    // UC11: Unassign Task
+    @Test
+    fun `unassignTask should return task response`() {
+        val task = dummyTask()
+        `when`(taskRepository.findById(1L)).thenReturn(Optional.of(task))
+        `when`(taskRepository.save(task)).thenReturn(task)
+        `when`(taskMapper.toResponse(task)).thenCallRealMethod()
+
+        assertThatCode { taskService.unassignTask(1L) }.doesNotThrowAnyException()
+    }
+
+    @Test
+    fun `unassignTask should throw when not found`() {
+        `when`(taskRepository.findById(99L)).thenReturn(Optional.empty())
+
+        assertThatThrownBy { taskService.unassignTask(99L) }
+            .isInstanceOf(ResourceNotFoundException::class.java)
+    }
+
+    //UC12: Change Task Status
+    @Test
+    fun `changeTaskStatus should return updated status`() {
+        val task = dummyTask()
+        val request = ChangeTaskStatusRequest(TaskStatus.IN_PROGRESS)
+        `when`(taskRepository.findById(1L)).thenReturn(Optional.of(task))
+        `when`(taskRepository.save(task)).thenReturn(task)
+        `when`(taskMapper.toResponse(task)).thenCallRealMethod()
+
+        assertThatCode { taskService.changeTaskStatus(1L, request) }.doesNotThrowAnyException()
+    }
+
+    @Test
+    fun `changeTaskStatus should throw when transition not allowed`() {
+        val task = dummyTask() // status is OPEN by default
+        val request = ChangeTaskStatusRequest(TaskStatus.COMPLETED)
+        `when`(taskRepository.findById(1L)).thenReturn(Optional.of(task))
+
+        assertThatThrownBy { taskService.changeTaskStatus(1L, request) }
+            .isInstanceOf(BadRequestException::class.java)
+    }
+
+    @Test
+    fun `changeTaskStatus should throw when task not found`() {
+        `when`(taskRepository.findById(99L)).thenReturn(Optional.empty())
+
+        assertThatThrownBy { taskService.changeTaskStatus(99L, ChangeTaskStatusRequest(TaskStatus.IN_PROGRESS)) }
+            .isInstanceOf(ResourceNotFoundException::class.java)
+    }
+
+    // UC13: Add Comment
+    @Test
+    fun `addComment should return comment response`() {
+        val request = AddCommentRequest("Nice task", 1L)
+        val task = dummyTask()
+        val author = dummyUser()
+        val comment = dummyComment()
+
+        `when`(taskRepository.findById(1L)).thenReturn(Optional.of(task))
+        `when`(userRepository.findById(1L)).thenReturn(Optional.of(author))
+        `when`(commentMapper.toEntity(request, task, author)).thenReturn(comment)
+        `when`(commentRepository.save(comment)).thenReturn(comment)
+        `when`(commentMapper.toResponse(comment)).thenCallRealMethod()
+
+        assertThatCode { commentService.addComment(1L, request) }.doesNotThrowAnyException()
+    }
+
+    @Test
+    fun `addComment should throw when task not found`() {
+        `when`(taskRepository.findById(99L)).thenReturn(Optional.empty())
+
+        assertThatThrownBy { commentService.addComment(99L, AddCommentRequest("Nice task", 1L)) }
+            .isInstanceOf(ResourceNotFoundException::class.java)
+    }
+
+    @Test
+    fun `addComment should throw when author not found`() {
+        val task = dummyTask()
+        `when`(taskRepository.findById(1L)).thenReturn(Optional.of(task))
+        `when`(userRepository.findById(99L)).thenReturn(Optional.empty())
+
+        assertThatThrownBy { commentService.addComment(1L, AddCommentRequest("Nice task", 99L)) }
+            .isInstanceOf(ResourceNotFoundException::class.java)
+    }
+
+    // UC14: View Comments
+    @Test
+    fun `getComments should return comments`() {
+        val task = dummyTask()
+        val comment = dummyComment()
+        `when`(taskRepository.findById(1L)).thenReturn(Optional.of(task))
+        `when`(commentRepository.findByTaskId(1L)).thenReturn(listOf(comment))
+        `when`(commentMapper.toResponse(comment)).thenCallRealMethod()
+
+        assertThat(commentService.getComments(1L)).hasSize(1)
+    }
+
+    @Test
+    fun `getComments should throw when task not found`() {
+        `when`(taskRepository.findById(99L)).thenReturn(Optional.empty())
+
+        assertThatThrownBy { commentService.getComments(99L) }
+            .isInstanceOf(ResourceNotFoundException::class.java)
+    }
+
+    // UC15: Search Tasks
+    @Test
+    fun `searchTasks should return matching tasks`() {
+        val task = dummyTask()
+        `when`(taskRepository.findByTitleContainingIgnoreCase("Task")).thenReturn(listOf(task))
+        `when`(taskMapper.toResponse(task)).thenCallRealMethod()
+
+        assertThat(taskService.searchTasks("Task")).hasSize(1)
+    }
+
+    @Test
+    fun `searchTasks should return empty when no match`() {
+        `when`(taskRepository.findByTitleContainingIgnoreCase("xyz")).thenReturn(listOf())
+
+        assertThat(taskService.searchTasks("xyz")).isEmpty()
     }
 }
